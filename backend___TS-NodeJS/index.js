@@ -33,7 +33,7 @@ const app = (0, express_1.default)();
 app.use(express_1.default.json());
 dotenv_1.default.config();
 const SECRET_KEY = process.env.TOKEN_KEY;
-// Endpoint pour obtenir un endpoint
+// Endpoint pour obtenir un token
 app.post('/api/token', (req, res) => {
     const { email } = req.body;
     if (!email) {
@@ -55,14 +55,44 @@ app.use((req, res, next) => {
         next();
     });
 });
-function justifyText() {
+function justifyLine(line, lineLength) {
+    const words = line.trim().split(' ');
+    const totalSpaces = lineLength - line.replace(/ /g, '').length;
+    const spacesPerGap = Math.floor(totalSpaces / (words.length - 1));
+    const extraSpaces = totalSpaces % (words.length - 1);
+    let justifiedLine = '';
+    for (let i = 0; i <= words.length; i++) {
+        justifiedLine += words[i];
+        if (i < words.length - 1) {
+            justifiedLine += ' '.repeat(spacesPerGap);
+            if (i < extraSpaces) {
+                justifiedLine += ' ';
+            }
+        }
+    }
+    return justifiedLine;
+}
+function justifyText(text, lineLength) {
+    const words = text.split(' ');
+    let currentLine = '';
+    const justifiedLines = [];
+    for (const word of words) {
+        if (currentLine.length + word.length <= lineLength) {
+            currentLine += word + ' ';
+        }
+        else {
+            justifiedLines.push(justifyLine(currentLine, lineLength));
+            currentLine = word + ' ';
+        }
+    }
+    // Ajoutez la dernière ligne
+    justifiedLines.push(justifyLine(currentLine, lineLength));
+    return justifiedLines.join('\n');
 }
 // Endpoint pour justifier le texte
 app.post('/api/justify', (req, res) => {
     const { textToJustify } = req.body;
-    // Opération de justification du texte
-    const justifiedText = "";
-    // Texte justifié
+    const justifiedText = justifyText(textToJustify, 80);
     res.json({ newText: justifiedText });
 });
 const port = 8000;
