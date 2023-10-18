@@ -4,13 +4,34 @@ import bodyParser from "body-parser";
 import * as jwt from "jsonwebtoken";
 import crypto from "crypto";
 import swaggerUI from "swagger-ui-express"
-import YAML from "yamljs"
+import swaggerJSDoc from "swagger-jsdoc";
 
 const app = express()
 
-const swaggerDoc = YAML.load('swagger-spec-test.yml')
+// const swaggerDoc = YAML.load('swagger-spec-test.yml')
+const swaggerOptions = {
+  swaggerDefinition: {
+    openapi: '3.0.0',
+    info: {
+      title: "Documentation API REST de justification de texte",
+      version: '1.0.0',
+      description: "API REST de justification et Token d'authentification",
+      servers: ["http://localhost:8000"]
+    },
+    components: {
+      securitySchemes: {
+        BearerAuth: {
+          type: 'http',
+          scheme: 'bearer'
+        }
+      }
+    }
+  },
+  apis: ["index.js"]
+}
 
-app.use('/api-docs', swaggerUI.serve, swaggerUI.setup(swaggerDoc))
+const specs = swaggerJSDoc(swaggerOptions)
+app.use('/api-docs', swaggerUI.serve, swaggerUI.setup(specs))
 
 app.use(express.text())
 app.use(bodyParser.json({ limit: "30mb" }))
@@ -27,17 +48,51 @@ app.get('/', (req, res) => {
 });
 
 // Endpoint pour obtenir un token
+/**
+ * @swagger
+ * /api/token:
+ *   post:
+ *     summary: Récupération de token
+ *     description: Endpoint pour récupérer un token d'authentification.
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               emailUser:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Token response
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token:
+ *                   type: string
+ *       400:
+ *         description: Invalid email
+ */
 app.post('/api/token', (req: Request, res: Response) => {
   const { emailUser } = req.body;
 
+  const emailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+  const isValidEmail = emailRegex.test(emailUser)
+  if(!isValidEmail) {
+    return res.status(400).json({ error: "Erreur: Email non conforme!" })
+  }
+
   if (!emailUser) {
-      return res.status(400).json({ error: "Email obligatoire!" })
+    return res.status(400).json({ error: "Email obligatoire!" })
   }
 
   const token = jwt.sign({ emailUser }, SECRET_KEY, { expiresIn: '24h' })
   res.status(200).json({ email: emailUser, tokenID: token })
 })
 
+// On complète avec des espaces les lignes de moins de 80 mots
 function allSpacesPositions(text: string): number[] {
   let tab: number[] = []
   for (let i = 0; i < text.length; i++)  {
@@ -49,6 +104,7 @@ function allSpacesPositions(text: string): number[] {
   return tab
 }
 
+// On partitionne les textes légèrement inférieurs à 80 mots
 function justifyText(text: string, maxCharsPerLine: number): string {
   const arrayText: string[] = text.split(' ')
   let temp: string = ''
@@ -122,8 +178,69 @@ const checkRateLimitMiddleware = (req: Request, res: Response, next: NextFunctio
 }
 
 // Endpoint pour justifier le texte
+/**
+ * @swagger
+ * /api/justify:
+ *   post:
+ *     summary: Justification de texte
+ *     description: Endpoint pour justifier un texte, suite à l'authentification de l'utilisateur.
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       content:
+ *         text/plain:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               textToJustify:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Texte justifié
+ *         content:
+ *           text/plain:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 justifiedText:
+ *                   type: string
+ *                 currentRate:
+ *                   type: integer
+ *       400:
+ *         description: Texte à justifier obligatoire
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *       401:
+ *         description: Problème d'authentification (Token non défini)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *       402:
+ *         description: Nombre limite de 80000 mots par jour atteint
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ */
 app.post('/api/justify', checkRateLimitMiddleware, (req: Request, res: Response) => {
   const textToJustify = req.body as string
+
+  if(!textToJustify) {
+    return res.status(400).json({ error: "Texte à justifier obligatoire" })
+  }
+
   const wordsLength = textToJustify.length
 
   if(wordsLength > 80000) {
@@ -132,8 +249,7 @@ app.post('/api/justify', checkRateLimitMiddleware, (req: Request, res: Response)
     const justifiedText = justifyText(textToJustify, 80)
     console.log(justifiedText);
     
-  
-    res.json({ justifiedText, currentRate: wordsLength })
+    res.status(200).json({ justifiedText, currentRate: wordsLength })
   }
 })
 
