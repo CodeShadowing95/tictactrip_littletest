@@ -1,0 +1,46 @@
+# openapi: 3.0.0
+swagger: "2.0"
+info:
+  title: API de justification de texte
+  description: API REST qui permet de justifier un texte passé en paramètre. L'API doit utiliser un mécanisme d'authentification via token unique à travers un email sans quoi l'opération de justification ne pourra être possible
+  version: 1.0.0
+
+servers:
+  url: http://localhost:8000
+  description: Serveur local
+
+paths:
+  /api/token:
+    post:
+      # summary: Obtenir un token d'authentification
+      description: Fournit un token d'authentification lorsqu'une adresse mail valide a été renseignée
+      requestBody:
+        description: Adresse mail de l'utilisateur
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+      responses:
+        200:
+          description: Email valide et création du token d'authentication
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+        400:
+          description: Email non renseigné
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        

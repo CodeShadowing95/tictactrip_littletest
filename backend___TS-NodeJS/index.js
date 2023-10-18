@@ -27,75 +27,126 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
+const cors_1 = __importDefault(require("cors"));
+const body_parser_1 = __importDefault(require("body-parser"));
 const jwt = __importStar(require("jsonwebtoken"));
-const dotenv_1 = __importDefault(require("dotenv"));
+const crypto_1 = __importDefault(require("crypto"));
+const swagger_ui_express_1 = __importDefault(require("swagger-ui-express"));
+const yamljs_1 = __importDefault(require("yamljs"));
 const app = (0, express_1.default)();
+const swaggerDoc = yamljs_1.default.load('swagger-spec-test.yml');
+app.use('/api-docs', swagger_ui_express_1.default.serve, swagger_ui_express_1.default.setup(swaggerDoc));
+app.use(express_1.default.text());
+app.use(body_parser_1.default.json({ limit: "30mb" }));
+app.use(body_parser_1.default.urlencoded({ limit: "30mb", extended: true }));
+app.use((0, cors_1.default)());
 app.use(express_1.default.json());
-dotenv_1.default.config();
-const SECRET_KEY = process.env.TOKEN_KEY;
+const SECRET_KEY = crypto_1.default.randomBytes(64).toString('hex');
+// Check if the server works properly
+app.get('/', (req, res) => {
+    res.send('Hello, World!');
+});
 // Endpoint pour obtenir un token
 app.post('/api/token', (req, res) => {
-    const { email } = req.body;
-    if (!email) {
+    const { emailUser } = req.body;
+    if (!emailUser) {
         return res.status(400).json({ error: "Email obligatoire!" });
     }
-    const token = jwt.sign({ email }, SECRET_KEY, { expiresIn: '24h' });
-    res.json({ token });
+    const token = jwt.sign({ emailUser }, SECRET_KEY, { expiresIn: '24h' });
+    res.status(200).json({ email: emailUser, tokenID: token });
 });
-// Middleware pour l'authentification
-app.use((req, res, next) => {
-    const token = req.header('Authorization');
-    if (!token) {
-        res.status(401).json({ error: "Échec de l'authentification" });
-    }
-    jwt.verify(token, SECRET_KEY, (err, decoded) => {
-        if (err) {
-            return res.status(401).json({ error: 'Token invalide' });
-        }
-        next();
-    });
-});
-function justifyLine(line, lineLength) {
-    const words = line.trim().split(' ');
-    const totalSpaces = lineLength - line.replace(/ /g, '').length;
-    const spacesPerGap = Math.floor(totalSpaces / (words.length - 1));
-    const extraSpaces = totalSpaces % (words.length - 1);
-    let justifiedLine = '';
-    for (let i = 0; i <= words.length; i++) {
-        justifiedLine += words[i];
-        if (i < words.length - 1) {
-            justifiedLine += ' '.repeat(spacesPerGap);
-            if (i < extraSpaces) {
-                justifiedLine += ' ';
-            }
+function allSpacesPositions(text) {
+    let tab = [];
+    for (let i = 0; i < text.length; i++) {
+        if (text.charAt(i) === ' ') {
+            tab.push(i);
         }
     }
-    return justifiedLine;
+    return tab;
 }
-function justifyText(text, lineLength) {
-    const words = text.split(' ');
-    let currentLine = '';
-    const justifiedLines = [];
-    for (const word of words) {
-        if (currentLine.length + word.length <= lineLength) {
-            currentLine += word + ' ';
+function justifyText(text, maxCharsPerLine) {
+    const arrayText = text.split(' ');
+    let temp = '';
+    let tab = [];
+    let newText = '';
+    for (let word of arrayText) {
+        if (temp.length + word.length <= maxCharsPerLine) {
+            temp += word + ' ';
         }
         else {
-            justifiedLines.push(justifyLine(currentLine, lineLength));
-            currentLine = word + ' ';
+            tab.push(temp.trim());
+            temp = '';
+            temp += word + ' ';
         }
     }
-    // Ajoutez la dernière ligne
-    justifiedLines.push(justifyLine(currentLine, lineLength));
-    return justifiedLines.join('\n');
+    tab.push(temp.trim());
+    for (let text of tab) {
+        if (maxCharsPerLine - text.length !== 0) {
+            let extraSpacesCount = ' '.repeat(maxCharsPerLine - text.length).length;
+            while (extraSpacesCount > 0) {
+                const spacePositions = allSpacesPositions(text);
+                const idx = Math.floor(Math.random() * spacePositions.length);
+                const randomSpaceIndex = spacePositions[idx];
+                text = text.slice(0, randomSpaceIndex) + ' ' + text.slice(randomSpaceIndex);
+                extraSpacesCount--;
+            }
+            newText += (text + '\n');
+        }
+        else {
+            newText += (text + '\n');
+        }
+    }
+    return newText;
 }
+// Objet pour stocker le quota quotidien par token
+const quotaQuotidien = new Map();
+// Middleware pour vérifier le taux limite de mots par token
+const checkRateLimitMiddleware = (req, res, next) => {
+    const token = req.header('Authorization');
+    const textToJustify = req.body;
+    if (token) {
+        // On compte le nombre de mots du texte à justifier
+        const wordsLength = textToJustify.length;
+        // On vérifie si pour le token, il y a déjà eu un nombre de mots utilisés
+        if (quotaQuotidien.has(token)) {
+            const usedWordsLength = quotaQuotidien.get(token) || 0;
+            // On vérifie si le nombre de mots courant du token + le nombre de mots de la requête est supérieure à 80000
+            const rateLimit = usedWordsLength + wordsLength;
+            if (rateLimit > 80000) {
+                // Si la somme dépasse, on renvoie une erreur 402 Payment required
+                res.status(402).json({ error: 'Payment Required' });
+            }
+            else {
+                // Sinon on ajoute le nombre de mots utilisés lors de la requête au nombre de mots courant du token
+                quotaQuotidien.set(token, rateLimit);
+                next();
+            }
+        }
+        else {
+            quotaQuotidien.set(token, wordsLength);
+            next();
+        }
+    }
+    else {
+        res.status(401).json({ error: 'Échec: Token requis' });
+        return;
+    }
+};
 // Endpoint pour justifier le texte
-app.post('/api/justify', (req, res) => {
-    const { textToJustify } = req.body;
-    const justifiedText = justifyText(textToJustify, 80);
-    res.json({ newText: justifiedText });
+app.post('/api/justify', checkRateLimitMiddleware, (req, res) => {
+    const textToJustify = req.body;
+    const wordsLength = textToJustify.length;
+    if (wordsLength > 80000) {
+        res.status(402).json({ error: 'Payment Required' });
+    }
+    else {
+        const justifiedText = justifyText(textToJustify, 80);
+        console.log(justifiedText);
+        res.json({ justifiedText, currentRate: wordsLength });
+    }
 });
 const port = 8000;
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 });
+exports.default = app;
