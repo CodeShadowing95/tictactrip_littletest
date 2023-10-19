@@ -39,7 +39,8 @@ const Home = () => {
     } else {
       const emailUser = formData?.email
   
-      const response = await fetch('http://localhost:8000/api/token', {
+      // const response = await fetch('/api/token', {
+      const response = await fetch('https://justifierking-demo.onrender.com/api/token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -82,7 +83,8 @@ const Home = () => {
         setMessage2('')
         setWarningToken('')
 
-        fetch('http://localhost:8000/api/justify', {
+        // fetch('http://localhost:8000/api/justify', {
+        fetch('https://justifierking-demo.onrender.com/api/justify', {
           method: 'POST',
           headers: {
             'Content-Type': 'text/plain',

@@ -16,7 +16,8 @@ const swaggerOptions = {
       title: "Documentation API REST de justification de texte",
       version: '1.0.0',
       description: "API REST de justification et Token d'authentification",
-      servers: ["http://localhost:8000"]
+      // servers: ["http://localhost:8000"]
+      servers: ["https://justifierking-demo.onrender.com"]
     },
     components: {
       securitySchemes: {
@@ -32,6 +33,13 @@ const swaggerOptions = {
 
 const specs = swaggerJSDoc(swaggerOptions)
 app.use('/api-docs', swaggerUI.serve, swaggerUI.setup(specs))
+
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'https://justifierking.netlify.app/');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  next();
+});
 
 app.use(express.text())
 app.use(bodyParser.json({ limit: "30mb" }))
