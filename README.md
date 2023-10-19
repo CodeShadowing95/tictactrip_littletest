@@ -26,3 +26,26 @@ Côté serveur et client suite au clonage du projet
 
 **Server:** Node.js, Typescript
 
+
+## Références de l'API
+
+#### Générer un token d'authentification avec un email
+
+```http
+  POST /api/token
+```
+
+| Paramètre | Type     | Description                |
+| :-------- | :------- | :------------------------- |
+| `email` | `string` | **Required**. Email utilisateur |
+
+#### Justifier le texte passé en paramètre
+
+```http
+  POST /api/justify
+```
+
+| Paramètre | Type     | Description                       |
+| :-------- | :------- | :-------------------------------- |
+| `textToJustify`      | `string` | **Required**. Texte à justifier |
+

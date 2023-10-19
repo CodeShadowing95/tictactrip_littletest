@@ -199,7 +199,7 @@ const Home = () => {
                 
                 <Box sx={{ padding: "15px", borderRadius: "5px", border: "1px solid #e1e1e1", height: "450px", maxWidth: "800px", overflow: "auto" }}>
                   {justifiedText.length !== 0 ?
-                    <pre style={{ fontSize: "16px" }}>
+                    <pre style={{ fontSize: "15px" }}>
                       {justifiedText}
                     </pre>
                     :
